@@ -1,0 +1,37 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+crash.log
+
+# SSH keys (private)
+*.pem
+id_rsa
+id_ed25519
+k8slab_key
+*_rsa
+*_ed25519
+
+# Kubernetes credentials
+kubeconfig
+admin.conf
+*.kubeconfig
+
+# Secrets and environment files
+.env
+*.secret
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
