@@ -26,3 +26,8 @@ Terraform's `azurerm` provider reuses my Azure CLI session. I sign in once with 
 - no secret exists in the code, so nothing can be leaked through Git (my repo is public);
 - the login token is temporary and tied to my verified sign-in, and it can be revoked;
 - hardcoded credentials would be copied into every clone, commit, and backup of the repo.
+## Task 3: Azure Subscription Setup
+
+**Q. What happens if you run `terraform apply` before accepting marketplace terms?**
+
+The apply fails when it reaches the VM creation. Azure refuses to deploy a Marketplace image (Rocky Linux from publisher `resf`) until the legal terms are accepted on the subscription, and the error says the legal terms have not been accepted. Terraform may already have created the network resources by then, so the deployment ends up half-built. The fix is to accept the terms (`az vm image terms accept ...`) and run `terraform apply` again. Accepting them once, before the first apply, avoids the failed run.
