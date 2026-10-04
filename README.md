@@ -31,3 +31,9 @@ Terraform's `azurerm` provider reuses my Azure CLI session. I sign in once with 
 **Q. What happens if you run `terraform apply` before accepting marketplace terms?**
 
 The apply fails when it reaches the VM creation. Azure refuses to deploy a Marketplace image (Rocky Linux from publisher `resf`) until the legal terms are accepted on the subscription, and the error says the legal terms have not been accepted. Terraform may already have created the network resources by then, so the deployment ends up half-built. The fix is to accept the terms (`az vm image terms accept ...`) and run `terraform apply` again. Accepting them once, before the first apply, avoids the failed run.
+
+## Task 4: Dedicated SSH Key Pair
+
+**Q. What is the difference between a public key and a private key, and where does each reside?**
+
+An SSH key pair has two mathematically linked parts. The **public key** (`k8slab_key.pub`) is like a lock: it can be shared freely and is placed on the servers I want to access (in `~/.ssh/authorized_keys` on each VM). The **private key** (`k8slab_key`) is the matching key that opens it: it never leaves my laptop and must never be shared or committed to Git. When I connect, the server challenges me, and only the holder of the private key can answer correctly, so no password is sent over the network.
