@@ -37,3 +37,7 @@ The apply fails when it reaches the VM creation. Azure refuses to deploy a Marke
 **Q. What is the difference between a public key and a private key, and where does each reside?**
 
 An SSH key pair has two mathematically linked parts. The **public key** (`k8slab_key.pub`) is like a lock: it can be shared freely and is placed on the servers I want to access (in `~/.ssh/authorized_keys` on each VM). The **private key** (`k8slab_key`) is the matching key that opens it: it never leaves my laptop and must never be shared or committed to Git. When I connect, the server challenges me, and only the holder of the private key can answer correctly, so no password is sent over the network.
+
+**Q. Why does the NSG not need rules for Kubernetes traffic between cp1 and w1 inside the subnet?**
+
+Every Azure NSG includes default rules, and one of them (`AllowVnetInBound`) allows all traffic between resources in the same virtual network. Both nodes are in the same subnet inside the VNet, so Kubernetes traffic between them (the API on 6443, the kubelet on 10250, and the Calico networking ports) is already permitted. The NSG rules I wrote only control traffic coming from outside: SSH and the API from my IP, and the app ports from the internet.
