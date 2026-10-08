@@ -4,12 +4,12 @@ variable "subscription_id" {
 }
 
 variable "my_public_ip" {
-  description = "My public IP address. Only this address may reach SSH and the Kubernetes API."
+  description = "Source address range allowed to reach SSH and the Kubernetes API, in CIDR notation (for example 203.0.113.10/32 for a single address)."
   type        = string
 
   validation {
-    condition     = can(cidrhost("${var.my_public_ip}/32", 0))
-    error_message = "my_public_ip must be a valid IP address"
+    condition     = can(cidrhost(var.my_public_ip, 0))
+    error_message = "my_public_ip must be CIDR notation, for example 203.0.113.10/32 or 203.0.113.0/24."
   }
 }
 
@@ -17,7 +17,7 @@ variable "location" {
 
   description = "Azure region to deploy into"
   type        = string
-  default     = "westeurope"
+  default     = "swedencentral"
 
 }
 
@@ -54,7 +54,7 @@ variable "subnet_cidr" {
 variable "vm_size" {
   description = "Azure VM size (2 vCPU, 4 GB RAM meets the project minimum)"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ls_v2"
 }
 
 variable "admin_username" {
