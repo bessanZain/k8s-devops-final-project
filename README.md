@@ -41,3 +41,19 @@ An SSH key pair has two mathematically linked parts. The **public key** (`k8slab
 **Q. Why does the NSG not need rules for Kubernetes traffic between cp1 and w1 inside the subnet?**
 
 Every Azure NSG includes default rules, and one of them (`AllowVnetInBound`) allows all traffic between resources in the same virtual network. Both nodes are in the same subnet inside the VNet, so Kubernetes traffic between them (the API on 6443, the kubelet on 10250, and the Calico networking ports) is already permitted. The NSG rules I wrote only control traffic coming from outside: SSH and the API from my IP, and the app ports from the internet.
+
+## Task 5: Terraform Infrastructure Code
+
+**Q1. Why does the NSG not need rules for Kubernetes traffic between cp1 and w1 inside the subnet?**
+
+Every Azure NSG includes default rules, and one of them (`AllowVnetInBound`) allows all traffic between resources in the same virtual network. Both nodes are in the same subnet inside the VNet, so Kubernetes traffic between them (the API on 6443, the kubelet on 10250, and the Calico networking ports) is already permitted. The NSG rules I wrote only control traffic coming from outside: SSH and the API from my network, and the app ports from the internet.
+
+**Q2. Why must the private IPs be static for this cluster?**
+
+Many things record the nodes' private addresses: the `/etc/hosts` entries written by cloud-init, the Ansible variables (`cp1_ip`, `w1_ip`), and the Kubernetes control plane, which advertises its address and puts it in its certificates and in the join command. If an address changed after a restart, those references would point to the wrong machine and the cluster would break. Static IPs keep them stable.
+
+**Q3. What is stored in `terraform.tfstate`, and why must it never be pushed to Git?**
+
+The state file maps my code to the real resources Terraform created. It holds every resource's attributes, such as IDs, IP addresses, and configuration, and it can contain sensitive values in plain text. It must never go to Git, especially a public repo, because it would reveal my infrastructure and any secrets inside it. Sharing it can also cause conflicts, since it must always match the real environment.
+
+**Deviation from the brief (firewall source):** the assignment says SSH (22) and the Kubernetes API (6443) should be allowed only from my public IP. My ISP routes traffic through a pool of public addresses (I observed .93, .94, .95 and .80 within a day, and different "what is my IP" sites reported different ones), so a single-address rule kept blocking me. I allowed my ISP's `/24` range instead (`165.16.83.0/24`). SSH still requires my private key, because password login is disabled on the VMs.
