@@ -76,3 +76,9 @@ cp1 is not only the controller, it is also a managed node in the inventory (the 
 **Q2. What happens if permissions on `.ssh` or `authorized_keys` are configured too loosely?**
 
 By default the SSH server runs with `StrictModes`, so it ignores an `authorized_keys` file (or a `.ssh` folder or home directory) that other users can write to, and the key login is refused with `Permission denied (publickey)`. This protects the account: if other users could modify the file, they could add their own key and log in as that user.
+
+## Task 9 Install Ansible Core on the Controller Only
+
+**Q. Why does w1 require no Ansible software installed? What does it need instead?**
+
+Ansible is agentless. Only the controller (cp1) has Ansible installed. It connects to each managed node over SSH, copies small Python modules to the node, runs them there, and removes them afterwards. So w1 needs only a working SSH server with key-based access for the automation user (set up in Task 8), Python 3 (present in the Rocky Linux image) for those modules to run, and sudo rights for privileged tasks (Task 7).
