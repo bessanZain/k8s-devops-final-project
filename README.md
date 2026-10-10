@@ -82,3 +82,12 @@ By default the SSH server runs with `StrictModes`, so it ignores an `authorized_
 **Q. Why does w1 require no Ansible software installed? What does it need instead?**
 
 Ansible is agentless. Only the controller (cp1) has Ansible installed. It connects to each managed node over SSH, copies small Python modules to the node, runs them there, and removes them afterwards. So w1 needs only a working SSH server with key-based access for the automation user (set up in Task 8), Python 3 (present in the Rocky Linux image) for those modules to run, and sudo rights for privileged tasks (Task 7).
+
+## Task 10: Inventory & Group Variables Setup
+
+`ansible/inventory.ini` defines `k8s_master` (cp1, local connection), `k8s_workers` (w1, SSH) and a parent group `k8s_cluster` containing both. `ansible/group_vars/all.yml` holds the shared variables (`cp1_ip`, `w1_ip`, `cluster_user`, `pod_network_cidr`) and sets `ansible_user` to the automation user.
+
+
+**Q. Why is cp1 managed with `ansible_connection=local` instead of connecting over SSH to itself?**
+
+cp1 is the machine Ansible is running on, so it can run tasks directly on itself. A local connection is simpler and more robust: it needs no SSH key or sshd configuration for cp1 to log in to itself, avoids the overhead of an SSH session, and cannot fail because of SSH access problems. SSH is only needed for the remote machine, w1.
