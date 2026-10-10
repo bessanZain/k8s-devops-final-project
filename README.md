@@ -57,3 +57,12 @@ Many things record the nodes' private addresses: the `/etc/hosts` entries writte
 The state file maps my code to the real resources Terraform created. It holds every resource's attributes, such as IDs, IP addresses, and configuration, and it can contain sensitive values in plain text. It must never go to Git, especially a public repo, because it would reveal my infrastructure and any secrets inside it. Sharing it can also cause conflicts, since it must always match the real environment.
 
 **Deviation from the brief (firewall source):** the assignment says SSH (22) and the Kubernetes API (6443) should be allowed only from my public IP. My ISP routes traffic through a pool of public addresses (I observed .93, .94, .95 and .80 within a day, and different "what is my IP" sites reported different ones), so a single-address rule kept blocking me. I allowed my ISP's `/24` range instead (`165.16.83.0/24`). SSH still requires my private key, because password login is disabled on the VMs.
+
+## Task 7: Create the Dedicated Automation User
+**Q1. Why does the user need passwordless sudo on cp1 as well, even though cp1 is the Ansible controller?**
+
+cp1 is not only the controller, it is also a managed node in the inventory (the `k8s_master` group) and the Kubernetes control plane. Ansible must run privileged tasks on it too, such as installing packages, editing system files and running `kubeadm init`. Ansible cannot type a sudo password during a playbook, so the user needs passwordless sudo on cp1 just as on w1.
+
+**Q2. Why is a sudoers drop-in file safer than editing /etc/sudoers directly?**
+
+`/etc/sudoers` is a critical file, and a single syntax error in it can break sudo for everyone and lock me out of root access. A drop-in file in `/etc/sudoers.d/` keeps my rule separate: I can validate it with `visudo -cf` before installing it, add or remove it without touching the main file, audit it easily, and it is not overwritten by package updates.
