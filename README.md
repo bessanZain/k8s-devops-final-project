@@ -66,3 +66,13 @@ cp1 is not only the controller, it is also a managed node in the inventory (the 
 **Q2. Why is a sudoers drop-in file safer than editing /etc/sudoers directly?**
 
 `/etc/sudoers` is a critical file, and a single syntax error in it can break sudo for everyone and lock me out of root access. A drop-in file in `/etc/sudoers.d/` keeps my rule separate: I can validate it with `visudo -cf` before installing it, add or remove it without touching the main file, audit it easily, and it is not overwritten by package updates.
+
+## Task 8: Key-Based SSH Access from cp1 to w1
+
+**Q1. Why does `ssh-copy-id` fail on Azure VMs by default, and how did you install the key on w1?**
+
+`ssh-copy-id` works by logging in to the target with a password and appending the key. My VMs are created with password authentication disabled (SSH key only), and the new user has no password, so there is nothing to log in with and `ssh-copy-id` fails. I installed the key manually instead: I logged in to w1 with my laptop key as `azureuser`, switched to `bessan`, created `~/.ssh` with mode 700, appended cp1's public key to `authorized_keys`, and set it to mode 600.
+
+**Q2. What happens if permissions on `.ssh` or `authorized_keys` are configured too loosely?**
+
+By default the SSH server runs with `StrictModes`, so it ignores an `authorized_keys` file (or a `.ssh` folder or home directory) that other users can write to, and the key login is refused with `Permission denied (publickey)`. This protects the account: if other users could modify the file, they could add their own key and log in as that user.
