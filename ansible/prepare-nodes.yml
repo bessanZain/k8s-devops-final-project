@@ -42,3 +42,49 @@
           - python3-pip
           - dnf-utils
         state: present
+
+        
+    - name: Install time sync and the SSH server
+      ansible.builtin.dnf:
+        name:
+          - chrony
+          - openssh-server
+        state: present
+
+    - name: Enable and start time sync and SSH services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - chronyd
+        - sshd
+
+    - name: Show system fact summary
+      ansible.builtin.debug:
+        msg:
+          - "Hostname: {{ ansible_facts['hostname'] }}"
+          - "OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+          - "Kernel: {{ ansible_facts['kernel'] }}"
+          - "vCPUs: {{ ansible_facts['processor_vcpus'] }}"
+          - "RAM: {{ ansible_facts['memtotal_mb'] }} MB"
+
+    - name: Check whether a reboot is required
+      ansible.builtin.command: needs-restarting -r
+      register: reboot_check
+      changed_when: false
+      failed_when: reboot_check.rc not in [0, 1]
+
+    - name: Reboot w1 only if required (never cp1)
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+      when:
+        - reboot_check.rc == 1
+        - inventory_hostname == 'k8slab-w1'
+
+    - name: Report that cp1 needs a manual reboot
+      ansible.builtin.debug:
+        msg: "k8slab-cp1 needs a reboot but this playbook never reboots the controller. Reboot it manually."
+      when:
+        - reboot_check.rc == 1
+        - inventory_hostname == 'k8slab-cp1'
