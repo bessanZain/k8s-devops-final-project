@@ -116,3 +116,9 @@ By default the kubelet is configured to fail if swap is on. Kubernetes schedules
 **Q2 (Task 13). Why must both containerd and kubelet use the same cgroup driver (systemd)?**
 
 Cgroups are the Linux feature that limits and accounts for the CPU and memory of each process. The kubelet creates the cgroups for pods and containerd creates the cgroups for containers inside them. On a systemd-based system such as Rocky Linux, systemd owns the cgroup tree. If one component used the `cgroupfs` driver while the other used `systemd`, two managers would fight over the same hierarchy, which makes resource accounting inconsistent and can make pods and nodes unstable. Using the `systemd` driver in both gives one consistent view.
+
+## Task 14: Install Kubernetes and Initialize the Control Plane
+
+**Q. Why is the control plane node in NotReady status until Calico CNI is applied?**
+
+A node only becomes Ready when the container runtime reports that pod networking is working. Right after `kubeadm init` there is no CNI (Container Network Interface) plugin installed and no network configuration in `/etc/cni/net.d`, so the kubelet reports the network plugin as not initialized and the node stays NotReady (and the CoreDNS pods stay Pending). Applying Calico installs the CNI plugin and the pod network, after which the kubelet reports the node as Ready.
