@@ -91,3 +91,10 @@ Ansible is agentless. Only the controller (cp1) has Ansible installed. It connec
 **Q. Why is cp1 managed with `ansible_connection=local` instead of connecting over SSH to itself?**
 
 cp1 is the machine Ansible is running on, so it can run tasks directly on itself. A local connection is simpler and more robust: it needs no SSH key or sshd configuration for cp1 to log in to itself, avoids the overhead of an SSH session, and cannot fail because of SSH access problems. SSH is only needed for the remote machine, w1.
+
+
+## Task 11: Playbook 1, Prepare Nodes (prepare-nodes.yml)
+
+**Q. What does "idempotency" mean in Ansible and Infrastructure as Code?**
+
+An operation is idempotent if running it once or many times leaves the system in the same final state. Ansible tasks describe a desired state (for example "package X is installed" or "service Y is running") and only act if the system differs from it. The first run of my playbook installed and upgraded packages on both nodes; later runs changed nothing, apart from picking up newly published updates. Idempotency makes automation safe to re-run after a failure, lets me apply the same code repeatedly to keep machines consistent, and avoids side effects such as duplicate configuration.
