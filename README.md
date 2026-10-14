@@ -98,3 +98,21 @@ cp1 is the machine Ansible is running on, so it can run tasks directly on itself
 **Q. What does "idempotency" mean in Ansible and Infrastructure as Code?**
 
 An operation is idempotent if running it once or many times leaves the system in the same final state. Ansible tasks describe a desired state (for example "package X is installed" or "service Y is running") and only act if the system differs from it. The first run of my playbook installed and upgraded packages on both nodes; later runs changed nothing, apart from picking up newly published updates. Idempotency makes automation safe to re-run after a failure, lets me apply the same code repeatedly to keep machines consistent, and avoids side effects such as duplicate configuration.
+
+
+## Tasks 12 and 13: Deployment Playbook Architecture, OS Prerequisites and Container Runtime
+
+
+
+
+**Q (Task 12). Why can the execution order of control-plane.yml and workers.yml never be swapped?**
+
+control-plane.yml creates the cluster (`kubeadm init`) and produces the join command with the token and certificate hash. workers.yml uses that command to join w1 to the running API server on cp1. If the worker playbook ran first, there would be no cluster to join and no join command yet, so the join would fail.
+
+**Q1 (Task 13). Why does the Kubernetes kubelet refuse to run if SWAP is enabled?**
+
+By default the kubelet is configured to fail if swap is on. Kubernetes schedules pods using memory requests and enforces memory limits, and both assume memory is a firm resource. With swap, a container can spill into disk, so the memory accounting, limits and performance become unpredictable, and the scheduler can no longer reason correctly about a node's capacity. So swap is disabled before the kubelet starts.
+
+**Q2 (Task 13). Why must both containerd and kubelet use the same cgroup driver (systemd)?**
+
+Cgroups are the Linux feature that limits and accounts for the CPU and memory of each process. The kubelet creates the cgroups for pods and containerd creates the cgroups for containers inside them. On a systemd-based system such as Rocky Linux, systemd owns the cgroup tree. If one component used the `cgroupfs` driver while the other used `systemd`, two managers would fight over the same hierarchy, which makes resource accounting inconsistent and can make pods and nodes unstable. Using the `systemd` driver in both gives one consistent view.
