@@ -1,0 +1,59 @@
+---
+- name: Prepare the operating system for Kubernetes
+  hosts: k8s_cluster
+  become: true
+
+  tasks:
+    - name: Turn swap off now (only if swap is active)
+      ansible.builtin.command: swapoff -a
+      when: ansible_facts['swaptotal_mb'] | int > 0
+
+    - name: Remove swap entries from /etc/fstab so swap stays off after reboot
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^[^#].*\sswap\s'
+        state: absent
+        backup: true
+
+    - name: Read the current SELinux mode
+      ansible.builtin.command: getenforce
+      register: selinux_mode
+      changed_when: false
+
+    - name: Set SELinux to permissive for the running system
+      ansible.builtin.command: setenforce 0
+      when: selinux_mode.stdout == 'Enforcing'
+
+    - name: Keep SELinux permissive after reboot
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: SELINUX=permissive
+
+    - name: Load the kernel modules at every boot
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+        mode: "0644"
+
+    - name: Load the kernel modules now
+      ansible.builtin.command: "modprobe {{ item }}"
+      loop:
+        - overlay
+        - br_netfilter
+      changed_when: false
+
+    - name: Set the Kubernetes network sysctl parameters
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-kubernetes.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.ipv4.ip_forward = 1
+        mode: "0644"
+      register: sysctl_file
+
+    - name: Apply the sysctl settings
+      ansible.builtin.command: sysctl --system
+      when: sysctl_file.changed
