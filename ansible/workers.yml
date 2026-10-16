@@ -1,0 +1,16 @@
+---
+- name: Join the worker node to the cluster
+  hosts: k8s_workers
+  become: true
+
+  tasks:
+    - name: Make sure control-plane.yml captured the join command
+      ansible.builtin.assert:
+        that:
+          - hostvars[groups['k8s_master'][0]]['join_command'] is defined
+        fail_msg: "No join command found. Run control-plane.yml first, for example by running site.yml."
+
+    - name: Join the cluster (skipped if this node already joined)
+      ansible.builtin.command: "{{ hostvars[groups['k8s_master'][0]]['join_command'] }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
