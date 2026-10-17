@@ -122,3 +122,21 @@ Cgroups are the Linux feature that limits and accounts for the CPU and memory of
 **Q. Why is the control plane node in NotReady status until Calico CNI is applied?**
 
 A node only becomes Ready when the container runtime reports that pod networking is working. Right after `kubeadm init` there is no CNI (Container Network Interface) plugin installed and no network configuration in `/etc/cni/net.d`, so the kubelet reports the network plugin as not initialized and the node stays NotReady (and the CoreDNS pods stay Pending). Applying Calico installs the CNI plugin and the pod network, after which the kubelet reports the node as Ready.
+
+## Task 15: Join Worker Node & Verify Cluster
+
+`ansible/workers.yml` joins `w1` using the `kubeadm join` command captured by `control-plane.yml` (read from the control plane host with `hostvars`). An `assert` stops the play with a clear message if the join command does not exist, and `creates: /etc/kubernetes/kubelet.conf` makes the join run only once.
+
+The whole cluster is built by one command from cp1:
+
+```bash
+ansible-playbook -i inventory.ini site.yml
+kubectl get nodes -o wide
+```
+
+Both nodes are `Ready` on Kubernetes v1.36.5 with containerd 2.4.2. The second run of `site.yml` changes nothing on w1, showing the whole chain is idempotent.
+
+
+
+
+
