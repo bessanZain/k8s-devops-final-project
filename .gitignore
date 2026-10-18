@@ -34,3 +34,5 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+*.db
+instance/

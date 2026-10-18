@@ -137,6 +137,10 @@ kubectl get nodes -o wide
 Both nodes are `Ready` on Kubernetes v1.36.5 with containerd 2.4.2. The second run of `site.yml` changes nothing on w1, showing the whole chain is idempotent.
 
 
+## Task 16: Application Feature Development & Testing
+
+The Task Tracker is a Flask application (`app/taskapp`) with a PostgreSQL-ready SQLAlchemy model, a REST API (`/api/tasks`), a web UI, and `/health`, `/ready` and `/version` endpoints. A `priority` field (`low`, `medium` or `high`, default `medium`) was added to the model, the API (validated, with a `?priority=` filter) and the UI (a select box and coloured badges, tasks sorted by priority). `app/tests` has 7 pytest tests that run against an in-memory SQLite database, and `app/scripts/seed.py` inserts 10 sample tasks.
+
 
 
 
