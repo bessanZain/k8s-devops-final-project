@@ -141,6 +141,14 @@ Both nodes are `Ready` on Kubernetes v1.36.5 with containerd 2.4.2. The second r
 
 The Task Tracker is a Flask application (`app/taskapp`) with a PostgreSQL-ready SQLAlchemy model, a REST API (`/api/tasks`), a web UI, and `/health`, `/ready` and `/version` endpoints. A `priority` field (`low`, `medium` or `high`, default `medium`) was added to the model, the API (validated, with a `?priority=` filter) and the UI (a select box and coloured badges, tasks sorted by priority). `app/tests` has 7 pytest tests that run against an in-memory SQLite database, and `app/scripts/seed.py` inserts 10 sample tasks.
 
+## Task 17: Production Dockerfile & Docker Compose
 
+**Q1. What is the advantage of using a slim Python base image compared to a standard image?**
+
+The slim image contains only what Python needs to run, without the compilers and development tools of the full image. It is much smaller (a few hundred MB less), so it builds, pushes and pulls faster, saves registry and node disk space, and starts sooner on Kubernetes. It also has fewer installed packages, which means a smaller attack surface and fewer vulnerabilities to patch. The trade-off is that packages needing compilation require extra build tools; this project avoids that by using the prebuilt `psycopg2-binary`.
+
+**Q2. What is the operational difference between the /health and /ready endpoints?**
+
+`/health` is a liveness check: it only confirms the process is running and responding, without touching any dependency. If it fails, the orchestrator should restart the container. `/ready` is a readiness check: it also verifies that the application can reach its database. If it fails, the container is not restarted, but it is taken out of rotation so it receives no traffic until it recovers. Separating them avoids restart loops when only the database is temporarily unavailable.
 
 
