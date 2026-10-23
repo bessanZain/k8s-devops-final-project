@@ -151,4 +151,8 @@ The slim image contains only what Python needs to run, without the compilers and
 
 `/health` is a liveness check: it only confirms the process is running and responding, without touching any dependency. If it fails, the orchestrator should restart the container. `/ready` is a readiness check: it also verifies that the application can reach its database. If it fails, the container is not restarted, but it is taken out of rotation so it receives no traffic until it recovers. Separating them avoids restart loops when only the database is temporarily unavailable.
 
+## Task 18: CI/CD Pipeline with GitHub Actions
+
+`.github/workflows/ci-cd.yml` runs on every push and pull request to `main` with three jobs: **Lint and unit tests** (`flake8` and `pytest` on Python 3.12), **Terraform validate** (`terraform fmt -check`, `init -backend=false` and `validate`, with no cloud login needed), and **Build and push** (builds the Docker image and pushes it to GitHub Container Registry). The build job needs the other two to pass and only runs on a push to `main`. It logs in with the temporary `GITHUB_TOKEN`, so no credentials are stored, and tags the image with the **commit SHA** and **`latest`**: `ghcr.io/bessanzain/k8s-devops-final-project`.
+
 
