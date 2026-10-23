@@ -36,3 +36,5 @@ venv/
 Thumbs.db
 *.db
 instance/
+# Real Kubernetes Secret (the .example template is committed instead)
+k8s/02-postgres-secret.yaml

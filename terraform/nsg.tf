@@ -37,10 +37,24 @@ resource "azurerm_network_security_group" "main" {
     destination_port_ranges    = ["80", "5000"]
     source_address_prefix      = "*"
     destination_address_prefix = "*"
+
   }
+  security_rule {
+    name                       = "Allow-NodePort-From-My-IP"
+    priority                   = 130
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "30500"
+    source_address_prefix      = var.my_public_ip
+    destination_address_prefix = "*"
+  }
+
 }
 
 resource "azurerm_subnet_network_security_group_association" "nodes" {
   subnet_id                 = azurerm_subnet.nodes.id
   network_security_group_id = azurerm_network_security_group.main.id
+
 }
