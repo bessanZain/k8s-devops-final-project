@@ -55,6 +55,48 @@
       register: calico_apply
       changed_when: "'created' in calico_apply.stdout or 'configured' in calico_apply.stdout"
 
+
+
+
+
+         - name: Wait for the default Calico IP pool to exist
+      ansible.builtin.command: kubectl get ippools.crd.projectcalico.org default-ipv4-ippool
+      become: false
+      environment:
+        KUBECONFIG: "/home/{{ cluster_user }}/.kube/config"
+      register: pool_check
+      retries: 30
+      delay: 10
+      until: pool_check.rc == 0
+      changed_when: false
+
+    - name: Read the current IP-in-IP mode of the pool
+      ansible.builtin.command: >
+        kubectl get ippools.crd.projectcalico.org default-ipv4-ippool
+        -o jsonpath={.spec.ipipMode}
+      become: false
+      environment:
+        KUBECONFIG: "/home/{{ cluster_user }}/.kube/config"
+      register: ipip_mode
+      changed_when: false
+
+    - name: Switch Calico from IP-in-IP to VXLAN (Azure drops IP-in-IP packets)
+      ansible.builtin.command: >
+        kubectl patch ippools.crd.projectcalico.org default-ipv4-ippool
+        --type=merge -p '{"spec":{"ipipMode":"Never","vxlanMode":"Always"}}'
+      become: false
+      environment:
+        KUBECONFIG: "/home/{{ cluster_user }}/.kube/config"
+      when: ipip_mode.stdout != 'Never'
+      register: pool_patch
+
+    - name: Restart calico-node so the new mode takes effect
+      ansible.builtin.command: kubectl rollout restart daemonset/calico-node -n kube-system
+      become: false
+      environment:
+        KUBECONFIG: "/home/{{ cluster_user }}/.kube/config"
+      when: pool_patch is changed
+
     - name: Wait until the control plane node is Ready
       ansible.builtin.command: >
         kubectl wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=420s
@@ -71,3 +113,4 @@
     - name: Store the join command for workers.yml
       ansible.builtin.set_fact:
         join_command: "{{ join_command_result.stdout }}"
+        
