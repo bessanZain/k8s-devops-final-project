@@ -156,3 +156,7 @@ The slim image contains only what Python needs to run, without the compilers and
 `.github/workflows/ci-cd.yml` runs on every push and pull request to `main` with three jobs: **Lint and unit tests** (`flake8` and `pytest` on Python 3.12), **Terraform validate** (`terraform fmt -check`, `init -backend=false` and `validate`, with no cloud login needed), and **Build and push** (builds the Docker image and pushes it to GitHub Container Registry). The build job needs the other two to pass and only runs on a push to `main`. It logs in with the temporary `GITHUB_TOKEN`, so no credentials are stored, and tags the image with the **commit SHA** and **`latest`**: `ghcr.io/bessanzain/k8s-devops-final-project`.
 
 
+## Task 19: Deploy Application on Kubernetes Cluster
+
+The manifests in `k8s/` deploy PostgreSQL (a hostPath PersistentVolume on w1, a PVC, a Deployment pinned to w1, a ClusterIP Service named `postgres`) and the Task Tracker (a Deployment using `ghcr.io/bessanzain/k8s-devops-final-project:latest`, with readiness and liveness probes on `/ready` and `/health`, and a NodePort Service on 30500). The database credentials live in a Kubernetes Secret: the repository only contains the template `02-postgres-secret.yaml.example`, and the real Secret is created on cp1 and kept out of Git. A Terraform rule opens port 30500 to my network range. Everything is deployed with `kubectl apply -f k8s/`.
+
