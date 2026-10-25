@@ -55,11 +55,7 @@
       register: calico_apply
       changed_when: "'created' in calico_apply.stdout or 'configured' in calico_apply.stdout"
 
-
-
-
-
-         - name: Wait for the default Calico IP pool to exist
+    - name: Wait for the default Calico IP pool to exist
       ansible.builtin.command: kubectl get ippools.crd.projectcalico.org default-ipv4-ippool
       become: false
       environment:
@@ -113,4 +109,3 @@
     - name: Store the join command for workers.yml
       ansible.builtin.set_fact:
         join_command: "{{ join_command_result.stdout }}"
-        
