@@ -2,7 +2,59 @@
 
 DevOps Bootcamp final capstone: Terraform, Ansible, Kubernetes, and CI/CD.
 
-(Full documentation will be added as the project progresses.)
+**Status:** all 21 tasks complete (Path A: Azure + Terraform). The cloud resources were destroyed at the end (Task 21); everything can be rebuilt from this repository.
+
+Screenshots for each task are provided in the accompanying submission document.
+
+## Quick reproduction commands
+
+```powershell
+# Laptop: Azure setup, SSH key and infrastructure
+az login
+az provider register --namespace Microsoft.Network
+az provider register --namespace Microsoft.Compute
+az vm image terms accept --publisher resf --offer rockylinux-x86_64 --plan 9-base
+ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\k8slab_key -C "k8slab"
+cd terraform
+Copy-Item terraform.tfvars.example terraform.tfvars   # set subscription_id and my_public_ip (CIDR, e.g. 203.0.113.0/24)
+terraform init
+terraform validate
+terraform apply
+```
+
+```bash
+# Both nodes (as azureuser): create the automation user "bessan" (Task 7).
+# cp1 (as bessan): create an SSH key and install its public key on w1 (Task 8).
+# Then, on cp1 as bessan: Ansible and the whole Kubernetes cluster
+sudo dnf install -y epel-release
+sudo dnf install -y ansible-core git
+git clone https://github.com/bessanZain/k8s-devops-final-project.git
+cd k8s-devops-final-project/ansible
+ansible-playbook -i inventory.ini prepare-nodes.yml
+ansible-playbook -i inventory.ini site.yml
+kubectl get nodes -o wide
+
+# Application on Kubernetes (from the repository root on cp1)
+cd ~/k8s-devops-final-project
+cp k8s/02-postgres-secret.yaml.example k8s/02-postgres-secret.yaml   # then set a real password
+ansible -i ansible/inventory.ini k8s_workers -b -m file -a "path=/data/postgres state=directory owner=999 group=999 mode=0700"
+kubectl apply -f k8s/
+kubectl exec deploy/task-tracker -- python scripts/seed.py
+# open http://<node-public-ip>:30500
+```
+
+```powershell
+# Application locally (laptop, Docker Desktop)
+cd app
+docker compose up -d --build
+curl.exe http://localhost:5000/ready
+
+# Teardown
+cd ..\terraform
+terraform destroy -auto-approve
+```
+
+
 
 ## Task 1: Repository & Git Hygiene
 
@@ -38,9 +90,7 @@ The apply fails when it reaches the VM creation. Azure refuses to deploy a Marke
 
 An SSH key pair has two mathematically linked parts. The **public key** (`k8slab_key.pub`) is like a lock: it can be shared freely and is placed on the servers I want to access (in `~/.ssh/authorized_keys` on each VM). The **private key** (`k8slab_key`) is the matching key that opens it: it never leaves my laptop and must never be shared or committed to Git. When I connect, the server challenges me, and only the holder of the private key can answer correctly, so no password is sent over the network.
 
-**Q. Why does the NSG not need rules for Kubernetes traffic between cp1 and w1 inside the subnet?**
 
-Every Azure NSG includes default rules, and one of them (`AllowVnetInBound`) allows all traffic between resources in the same virtual network. Both nodes are in the same subnet inside the VNet, so Kubernetes traffic between them (the API on 6443, the kubelet on 10250, and the Calico networking ports) is already permitted. The NSG rules I wrote only control traffic coming from outside: SSH and the API from my IP, and the app ports from the internet.
 
 ## Task 5: Terraform Infrastructure Code
 
@@ -56,7 +106,12 @@ Many things record the nodes' private addresses: the `/etc/hosts` entries writte
 
 The state file maps my code to the real resources Terraform created. It holds every resource's attributes, such as IDs, IP addresses, and configuration, and it can contain sensitive values in plain text. It must never go to Git, especially a public repo, because it would reveal my infrastructure and any secrets inside it. Sharing it can also cause conflicts, since it must always match the real environment.
 
-**Deviation from the brief (firewall source):** the assignment says SSH (22) and the Kubernetes API (6443) should be allowed only from my public IP. My ISP routes traffic through a pool of public addresses (I observed .93, .94, .95 and .80 within a day, and different "what is my IP" sites reported different ones), so a single-address rule kept blocking me. I allowed my ISP's `/24` range instead (`165.16.83.0/24`). SSH still requires my private key, because password login is disabled on the VMs.
+**Deviation from the brief (firewall source):** the assignment says SSH (22) and the Kubernetes API (6443) should be allowed only from my public IP. My ISP routes traffic through a pool of public addresses (I observed .93, .94, .95 and .80 within a day, and different "what is my IP" sites reported different ones), so a single-address rule kept blocking me. I allowed my ISP's `/24` range . SSH still requires my private key, because password login is disabled on the VMs.
+
+## Task 6: Deploy & Verify Infrastructure (Path A)
+
+From the `terraform/` folder I ran `terraform init`, `terraform plan` (11 resources to add) and `terraform apply`, then connected to both VMs over SSH and checked that cloud-init had finished (`cloud-init status` is `done`, `/etc/hosts` lists both nodes, and `chronyd` is active). The apply was done in several runs because of the problems described in the post-mortems.
+
 
 ## Task 7: Create the Dedicated Automation User
 **Q1. Why does the user need passwordless sudo on cp1 as well, even though cp1 is the Ansible controller?**
@@ -160,3 +215,24 @@ The slim image contains only what Python needs to run, without the compilers and
 
 The manifests in `k8s/` deploy PostgreSQL (a hostPath PersistentVolume on w1, a PVC, a Deployment pinned to w1, a ClusterIP Service named `postgres`) and the Task Tracker (a Deployment using `ghcr.io/bessanzain/k8s-devops-final-project:latest`, with readiness and liveness probes on `/ready` and `/health`, and a NodePort Service on 30500). The database credentials live in a Kubernetes Secret: the repository only contains the template `02-postgres-secret.yaml.example`, and the real Secret is created on cp1 and kept out of Git. A Terraform rule opens port 30500 to my network range. Everything is deployed with `kubectl apply -f k8s/`.
 
+## Task 21: Resource Teardown & Cloud Cost Management
+
+After documenting everything, I ran `terraform destroy -auto-approve`. Terraform destroyed all 11 resources (VMs and their disks, NICs, public IPs, the NSG and its association, the subnet, the VNet and the resource group), and `az group exists -n k8slab-rg` now returns `false`. To keep costs low I used two small VMs, deallocated them when I was not working, and destroyed everything before the free credit expired.
+
+
+## Post-Mortems
+
+### 1. The app pod never becomes Ready on Kubernetes
+- **Error:** the `task-tracker` pod stayed `0/1` and restarted repeatedly (liveness probe `connection refused`, log `Database not ready`).
+- **Cause:** Calico's default IP pool used IP-in-IP encapsulation, which Azure's network drops, so pods on different nodes (the app on w1, CoreDNS on cp1) could not communicate. A test pod's ping to CoreDNS had 100% packet loss.
+- **Fix:** switched the Calico IP pool to VXLAN (`ipipMode: Never`, `vxlanMode: Always`), restarted `calico-node`, and automated the change in `control-plane.yml` so that `site.yml` stays a one-shot build.
+
+### 2. SSH connection times out although the NSG rule matches my IP
+- **Error:** `ssh: connect to host ... port 22: Connection timed out`, repeatedly, even after updating the NSG with the address shown by an IP-lookup site.
+- **Cause:** my ISP shares a pool of public addresses across customers. The address Azure saw was not always the one the lookup site reported, so a one-address rule kept failing.
+- **Fix:** changed the `my_public_ip` variable to accept CIDR notation and allowed the ISP's `/24` range for SSH and the Kubernetes API, then ran `terraform apply`, which updated only the NSG in place.
+
+### 3. The web container exits with `No module named 'psycopg'`
+- **Error:** in Docker Compose the `web` container exited immediately; the log ended with `ModuleNotFoundError: No module named 'psycopg'`.
+- **Cause:** `requirements.txt` did not pin SQLAlchemy, so version 2.1 was installed, where a plain `postgresql://` URL defaults to the `psycopg` (v3) driver, but only `psycopg2-binary` was installed.
+- **Fix:** named the driver explicitly in the connection URL (`postgresql+psycopg2://`), which works with every SQLAlchemy version.
